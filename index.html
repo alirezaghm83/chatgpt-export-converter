@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>ChatGPT Offline Archive — آرشیو آفلاین</title>
+  <style>
+    :root { font-family: system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif; color-scheme:dark; --bg:#0e1117;--panel:#161b24;--panel2:#202734;--line:#343c4a;--txt:#f0f2f6;--muted:#a8b2bf;--accent:#6bd9bf;--marked:#e8c16a; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt)} button,input,select{font:inherit} button{cursor:pointer} a{color:var(--accent)}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+    header h1{font-size:1.25rem;margin:0;font-weight:750} header p{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+    .buttons{display:flex;gap:8px;flex-wrap:wrap} button,.import-label{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-height:40px}
+    button:hover,.import-label:hover{border-color:var(--accent)} button:focus-visible, input:focus-visible,select:focus-visible,.import-label:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    button.primary,.import-label.primary{background:#127866;border-color:#127866;color:#fff}
+    button:disabled{opacity:.4;cursor:not-allowed}.import-label{display:inline-flex;align-items:center;cursor:pointer} .import-label input{display:none}
+    main{display:grid;grid-template-columns:minmax(290px,340px) 1fr;height:calc(100dvh - 86px);min-height:520px}
+    aside{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)} .filters{padding:14px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+    .filters input,.filters select{min-width:0;width:100%;background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:10px}
+    .dates{display:grid;grid-template-columns:1fr 1fr;gap:7px}.dates label{font-size:.75rem;color:var(--muted)}
+    .statistics{color:var(--muted);font-size:.81rem;min-height:1.4em}.listing{overflow-y:auto;flex:1;padding:6px}
+    .chat-option{width:100%;text-align:right;border:1px solid transparent;background:transparent;display:block;padding:12px 10px;border-radius:9px;margin-bottom:4px;white-space:normal}
+    .chat-option:hover{background:var(--panel2)}.chat-option.active{background:#173c37;border-color:#39796e}
+    .chat-title{font-weight:650;display:block;margin-bottom:7px;font-size:.9rem;line-height:1.45;word-break:break-word}
+    .chat-date{font-size:.74rem;color:var(--muted);direction:ltr;display:block;text-align:right}
+    #more{margin:6px;width:calc(100% - 12px)} .content{display:flex;flex-direction:column;min-width:0;min-height:0}
+    .content-header{padding:17px 23px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    #selectedTitle{margin:0;font-size:1.05rem;overflow-wrap:anywhere} #selectedMeta{font-size:.78rem;color:var(--muted);margin-top:4px}
+    .content-actions{display:flex;gap:7px}.scroll{overflow:auto;flex:1;padding:20px max(18px,calc((100% - 850px)/2));scroll-behavior:smooth}
+    .message{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;padding:16px;min-width:0}
+    .message.user{border-right:3px solid #a6b4f4}.message.assistant{border-right:3px solid var(--accent)}.role{font-size:.79rem;font-weight:750;margin-bottom:12px;color:var(--muted)}
+    .message-text{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.75;font-size:.94rem;unicode-bidi:plaintext}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;direction:ltr;text-align:left;unicode-bidi:plaintext;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px;overflow:auto;line-height:1.5;font-family:ui-monospace,Consolas,monospace;font-size:.84rem}
+    mark{background:#876b28;color:#fff;border-radius:2px} .empty{text-align:center;color:var(--muted);padding:65px 15px;line-height:1.9}
+    .empty h2{color:var(--txt);font-size:1.2rem}.empty p{max-width:520px;margin:10px auto}.note{background:#17302c;border:1px solid #2d6258;border-radius:10px;padding:12px 16px;color:#d4f2e9}
+    #status{padding:8px 24px;font-size:.82rem;color:var(--muted);border-bottom:1px solid var(--line);min-height:35px}
+    #status.error{color:#ffacac} #dropOverlay{display:none;position:fixed;inset:12px;border:3px dashed var(--accent);border-radius:20px;background:#0e1117ea;z-index:5;place-items:center;font-size:1.3rem}
+    #dropOverlay.visible{display:grid} [hidden]{display:none!important}
+    @media(max-width:750px){main{height:calc(100dvh - 135px);grid-template-columns:1fr;grid-template-rows:38% 62%} aside{border-left:0;border-bottom:1px solid var(--line)}.scroll{padding:12px}header{padding:12px}.content-header{padding:12px}.filters{grid-template-columns:1fr 1fr}.filters #query{grid-column:1/-1}.filters .statistics{grid-column:1/-1}.dates{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+<header>
+  <div><h1>📦 ChatGPT Offline Archive</h1><p>جست‌وجو و نگهداری خصوصی گفتگوها؛ بدون نصب، حساب کاربری یا اینترنت</p></div>
+  <div class="buttons">
+    <label class="import-label primary" tabindex="0" role="button" id="chooseLabel">انتخاب فایل JSON<input type="file" id="files" accept=".json,application/json" multiple aria-label="انتخاب خروجی JSON"></label>
+    <button id="save" disabled>ذخیره آرشیو ادغام‌شده</button>
+    <button id="reset">پاک کردن از حافظه مرورگر</button>
+  </div>
+</header>
+<div id="status" role="status" aria-live="polite">فقط فایل‌های محلی پردازش می‌شوند؛ هیچ داده‌ای از مرورگر ارسال نمی‌شود.</div>
+<main>
+  <aside>
+    <div class="filters">
+      <input id="query" type="search" autocomplete="off" placeholder="جست‌وجو در عنوان و متن گفتگوها…" aria-label="جست‌وجو">
+      <select id="sort" aria-label="مرتب‌سازی"><option value="desc">جدیدترین ابتدا</option><option value="asc">قدیمی‌ترین ابتدا</option><option value="title">براساس عنوان</option></select>
+      <div class="dates"><label>از تاریخ<input id="from" type="date"></label><label>تا تاریخ<input id="to" type="date"></label></div>
+      <div id="statistics" class="statistics">هیچ آرشیوی بارگذاری نشده است.</div>
+    </div>
+    <div class="listing" id="listing" aria-label="فهرست گفتگوها"></div>
+    <button id="more" hidden>نمایش موارد بیشتر</button>
+  </aside>
+  <section class="content" aria-label="متن گفتگو">
+    <div class="content-header"><div><h2 id="selectedTitle">شروع کار</h2><div id="selectedMeta"></div></div>
+      <div class="content-actions"><button id="copy" disabled>کپی متن</button><button id="markdown" disabled>دریافت Markdown</button></div></div>
+    <div class="scroll" id="messages"><div class="empty"><h2>خروجی ChatGPT را انتخاب کن</h2><p>از فایل ZIP خروجی رسمی ChatGPT، فایل <code>conversations.json</code> را انتخاب کن. امکان انتخاب چند خروجی و ادغام آن‌ها نیز وجود دارد.</p><p class="note">برای استفاده آفلاین کافی است این فایل HTML را با مرورگر باز کنی. هیچ اطلاعاتی در GitHub یا سرور ذخیره نمی‌شود.</p></div></div>
+  </section>
+</main>
+<div id="dropOverlay">فایل JSON را اینجا رها کن</div>
+<script>
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id);
+  const chats = new Map();
+  let results = [], visible = 80, selectedId = null, timer = null, dragCounter = 0;
+  const roleNames = {user:'کاربر', assistant:'ChatGPT',system:'System',tool:'Tool',developer:'Developer'};
+  const createdDate = time => {
+    if (time == null || time === '') return null;
+    const t = typeof time === 'string' && /^\d{4}-\d\d-\d\d/.test(time) ? Date.parse(time) : Number(time) * (Number(time) < 100000000000 ? 1000 : 1);
+    return Number.isFinite(t) && t > 0 ? new Date(t) : null;
+  };
+  const dateLabel = time => { const d=createdDate(time);return d && !isNaN(+d) ? d.toLocaleString('fa-IR') : 'تاریخ نامشخص'; };
+  const timestamp = time => createdDate(time)?.getTime() || 0;
+  const normalize = text => String(text ?? '').normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u064B-\u065F\u0670]/g,'').replace(/\u200c/g,' ').replace(/\s+/g,' ').toLocaleLowerCase();
+  function textFromPart(p) {
+    if (typeof p === 'string') return p;
+    if (p == null || typeof p !== 'object') return '';
+    if (typeof p.text === 'string') return p.text;
+    if (typeof p.caption === 'string') return p.caption;
+    if (p.content_type === 'image_asset_pointer' || p.asset_pointer || p.image_url) return '[تصویر / پیوست تصویری]';
+    if (p.content_type?.includes('audio') || p.audio_asset_pointer) return '[صوت / فایل صوتی]';
+    if (p.content_type?.includes('video')) return '[ویدئو]';
+    if (Array.isArray(p.parts)) return p.parts.map(textFromPart).filter(Boolean).join('\n');
+    if (Array.isArray(p.items)) return p.items.map(textFromPart).filter(Boolean).join('\n');
+    if (typeof p.value === 'string') return p.value;
+    return '';
+  }
+  function messageText(content) {
+    if (content == null) return '';
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content.parts)) return content.parts.map(textFromPart).filter(Boolean).join('\n');
+    return textFromPart(content);
+  }
+  function messageOf(node) {
+    const m = node?.message || node;
+    if (!m || !m.content) return null;
+    const role = m.author?.role || m.role || 'unknown';
+    const text = messageText(m.content);
+    if (!text.trim()) return null;
+    return {role, text, created:m.create_time || null};
+  }
+  function extractConversation(c,i) {
+    if (!c || typeof c !== 'object') return null;
+    const id = String(c.id || c.conversation_id || `imported-${i}-${c.title||'untitled'}`);
+    const title = String(c.title || 'گفتگوی بدون عنوان');
+    const created = c.create_time ?? c.created ?? null;
+    const updated = c.update_time ?? c.updated ?? created;
+    let messages=[];
+    if (Array.isArray(c.messages)) {
+      messages = c.messages.map(m => ({role:String(m.role||'unknown'),text:String(m.text||''),created:m.created??null})).filter(m=>m.text.trim());
+    } else if (c.mapping && typeof c.mapping === 'object') {
+      const mapping = c.mapping;
+      // Current branch only: traverse each parent from current_node to the root.
+      let end = c.current_node;
+      if (!end || !Object.prototype.hasOwnProperty.call(mapping,end)) {
+        const nodes = Object.values(mapping);
+        const leaves = nodes.filter(n => !Array.isArray(n?.children) || n.children.length===0);
+        const best = (leaves.length ? leaves : nodes).sort((a,b)=>timestamp(b?.message?.create_time)-timestamp(a?.message?.create_time))[0];
+        end = best?.id;
+      }
+      const chain=[],seen=new Set();
+      while (end && Object.prototype.hasOwnProperty.call(mapping,end) && !seen.has(end)) {
+        seen.add(end);const node=mapping[end];chain.push(node);end=node?.parent;
+      }
+      if (chain.length) messages=chain.reverse().map(messageOf).filter(Boolean);
+      else messages=Object.values(mapping).map(messageOf).filter(Boolean).sort((a,b)=>timestamp(a.created)-timestamp(b.created));
+    }
+    if (!messages.length && !c.mapping && !Array.isArray(c.messages)) return null;
+    return {id,title,created,updated,messages};
+  }
+  const setStatus=(value,error=false)=>{$('status').textContent=value;$('status').classList.toggle('error',error);};
+  function register(source) {
+    let list = Array.isArray(source) ? source : Array.isArray(source?.conversations) ? source.conversations : null;
+    if (!list) throw new Error('ساختار JSON شناخته نشد؛ فایل conversations.json یا آرشیو ذخیره‌شده را انتخاب کن.');
+    let added=0,replaced=0;
+    list.forEach((raw,i)=>{
+      const c=extractConversation(raw,i);
+      if (!c) return;
+      const existing=chats.get(c.id);
+      if (!existing){chats.set(c.id,c);added++;}
+      else if(timestamp(c.updated)>=timestamp(existing.updated) && c.messages.length>=existing.messages.length){chats.set(c.id,c);replaced++;}
+    });
+    return {added,replaced};
+  }
+  async function importFiles(files) {
+    const list=Array.from(files).filter(f=>/\.json$/i.test(f.name));
+    if (!list.length){setStatus('فایل JSON انتخاب نشده است.',true);return;}
+    $('files').value='';
+    let added=0,replaced=0,failures=[];
+    for (const f of list) {
+      setStatus('در حال خواندن '+f.name+' ('+(f.size/1048576).toFixed(1)+' MB)…');
+      await new Promise(resolve=>setTimeout(resolve,20));
+      try {const data=JSON.parse(await f.text());const r=register(data);added+=r.added;replaced+=r.replaced;}
+      catch(e){failures.push(f.name+': '+e.message);}
+    }
+    refresh();
+    setStatus(`${added.toLocaleString('fa-IR')} گفتگوی تازه، ${replaced.toLocaleString('fa-IR')} نسخه به‌روزشده. کل آرشیو: ${chats.size.toLocaleString('fa-IR')} گفتگو.${failures.length?' خطا: '+failures.join(' | '):''}`,!!failures.length);
+  }
+  function filtered() {
+    const q=normalize($('query').value.trim());const words=q.split(' ').filter(Boolean);
+    const start=$('from').value ? new Date($('from').value+'T00:00:00').getTime() : -Infinity;
+    const end=$('to').value ? new Date($('to').value+'T23:59:59.999').getTime() : Infinity;
+    let list=Array.from(chats.values()).filter(c=>{
+      const t=timestamp(c.created) || timestamp(c.updated);
+      if ((start!==-Infinity || end!==Infinity) && (!t || t<start || t>end)) return false;
+      if(!words.length)return true;
+      if(!c._search)c._search=normalize(c.title+'\n'+c.messages.map(m=>m.text).join('\n'));
+      return words.every(w=>c._search.includes(w));
+    });
+    const sort=$('sort').value;
+    list.sort(sort==='title' ? (a,b)=>a.title.localeCompare(b.title,'fa') : sort==='asc' ? (a,b)=>timestamp(a.updated)-timestamp(b.updated) : (a,b)=>timestamp(b.updated)-timestamp(a.updated));
+    return list;
+  }
+  function el(tag,klass,text) {const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=text;return n;}
+  function refresh(){ results=filtered();visible=80;paintList();if(selectedId && !chats.has(selectedId)){selectedId=null;paintChat();}}
+  function paintList(){
+    const list=$('listing');list.replaceChildren();const frag=document.createDocumentFragment();
+    results.slice(0,visible).forEach(c=>{
+      const b=el('button','chat-option'+(c.id===selectedId?' active':''));b.type='button';
+      b.append(el('span','chat-title',c.title),el('span','chat-date',dateLabel(c.updated))); b.onclick=()=>{selectedId=c.id;paintList();paintChat();};frag.append(b);
+    });list.append(frag);
+    $('statistics').textContent=`${results.length.toLocaleString('fa-IR')} گفتگو از ${chats.size.toLocaleString('fa-IR')} گفتگو`;
+    $('more').hidden=visible>=results.length;
+    $('more').textContent=`نمایش موارد بیشتر (${(results.length-visible).toLocaleString('fa-IR')} مورد باقی مانده)`;
+  }
+  function makeHighlighted(target,full,q){
+    const words=normalize(q).split(' ').filter(Boolean);
+    // Normalized search affects only matching conversations. The original message text is kept intact and escaped via textContent.
+    if(!words.length){target.textContent=full;return;}
+    const needle=q.trim();const idx=full.toLocaleLowerCase().indexOf(needle.toLocaleLowerCase());
+    if(idx<0){target.textContent=full;return;}
+    target.append(document.createTextNode(full.slice(0,idx)),el('mark',null,full.slice(idx,idx+needle.length)),document.createTextNode(full.slice(idx+needle.length)));
+  }
+  function renderText(node,text,query){
+    const re=/```([^\n`]*)\n([\s\S]*?)```/g;let start=0,match;
+    while((match=re.exec(text))!==null){
+      if(match.index>start){const body=el('div','message-text');makeHighlighted(body,text.slice(start,match.index),query);node.append(body);}
+      const code=el('pre',null,match[2]);if(match[1])code.title=match[1];node.append(code);start=re.lastIndex;
+    }
+    if(start<text.length || !node.childNodes.length){const body=el('div','message-text');makeHighlighted(body,text.slice(start),query);node.append(body);}
+  }
+  function paintChat(){
+    const c=chats.get(selectedId),box=$('messages');box.replaceChildren();
+    $('copy').disabled=!c;$('markdown').disabled=!c;
+    if(!c){$('selectedTitle').textContent='شروع کار';$('selectedMeta').textContent='';box.append(el('div','empty','یک گفتگو را از فهرست انتخاب کن.'));return;}
+    $('selectedTitle').textContent=c.title;
+    $('selectedMeta').textContent=`${c.messages.length.toLocaleString('fa-IR')} پیام · ${dateLabel(c.created)} تا ${dateLabel(c.updated)}`;
+    const frag=document.createDocumentFragment();const query=$('query').value;
+    c.messages.forEach(m=>{const node=el('article','message '+(m.role==='user'?'user':m.role==='assistant'?'assistant':''));node.append(el('div','role',roleNames[m.role]||m.role));renderText(node,m.text,query);frag.append(node);});
+    box.append(frag);box.scrollTop=0;
+  }
+  const textFor=c=>c.messages.map(m=>`${roleNames[m.role]||m.role}:\n${m.text}`).join('\n\n-----\n\n');
+  function download(name,data,type){const blob=new Blob([data],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
+  function md(c){return '# '+c.title.replace(/\n/g,' ')+'\n\n'+c.messages.map(m=>`## ${roleNames[m.role]||m.role}\n\n${m.text}`).join('\n\n---\n\n');}
+  $('files').onchange=e=>importFiles(e.target.files);
+  $('chooseLabel').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('files').click();}};
+  $('query').oninput=()=>{clearTimeout(timer);timer=setTimeout(()=>{refresh();if(selectedId)paintChat();},180);};
+  $('sort').onchange=refresh;$('from').onchange=refresh;$('to').onchange=refresh;
+  $('more').onclick=()=>{visible+=80;paintList();};
+  $('save').onclick=()=>{const archive=Array.from(chats.values()).map(({id,title,created,updated,messages})=>({id,title,created,updated,messages}));download('chatgpt-archive-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({format:'chatgpt-offline-archive-v1',conversations:archive},null,0),'application/json;charset=utf-8');};
+  $('copy').onclick=async()=>{const c=chats.get(selectedId);if(!c)return;try{await navigator.clipboard.writeText(textFor(c));setStatus('متن مکالمه کپی شد.');}catch(e){setStatus('مرورگر در حالت فایل آفلاین اجازه کپی نداد؛ از دریافت Markdown استفاده کن.',true);}};
+  $('markdown').onclick=()=>{const c=chats.get(selectedId);if(c)download('chat-'+c.id.replace(/[^a-z0-9_-]/gi,'_')+'.md',md(c),'text/markdown;charset=utf-8');};
+  $('reset').onclick=()=>{if(!chats.size)return;if(!confirm('تمام آرشیو بارگذاری‌شده از حافظه این تب پاک شود؟ فایل‌های اصلی حذف نخواهند شد.'))return;chats.clear();selectedId=null;refresh();paintChat();$('save').disabled=true;setStatus('حافظه این تب پاک شد. فایل‌های روی دیسک دست‌نخورده‌اند.');};
+  const originalRefresh=refresh;
+  refresh=function(){originalRefresh();$('save').disabled=!chats.size;};
+  window.addEventListener('dragenter',e=>{if(Array.from(e.dataTransfer?.types||[]).includes('Files')){dragCounter++;$('dropOverlay').classList.add('visible');}});
+  window.addEventListener('dragleave',()=>{dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('dropOverlay').classList.remove('visible');});
+  window.addEventListener('dragover',e=>e.preventDefault());
+  window.addEventListener('drop',e=>{e.preventDefault();dragCounter=0;$('dropOverlay').classList.remove('visible');if(e.dataTransfer?.files?.length)importFiles(e.dataTransfer.files);});
+  refresh();
+})();
+</script>
+</body>
+</html>
