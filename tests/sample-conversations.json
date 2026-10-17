@@ -1,0 +1,82 @@
+[
+  {
+    "id": "example-1",
+    "title": "پروژه آزمایشی Python",
+    "create_time": 1792221000,
+    "update_time": 1792222000,
+    "current_node": "m3",
+    "mapping": {
+      "m1": {
+        "id": "m1",
+        "parent": null,
+        "children": [
+          "m2"
+        ],
+        "message": {
+          "author": {
+            "role": "user"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "چطور پکیج Python را آفلاین نصب کنم؟"
+            ]
+          },
+          "create_time": 1792221000
+        }
+      },
+      "m2": {
+        "id": "m2",
+        "parent": "m1",
+        "children": [
+          "m3"
+        ],
+        "message": {
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "از pip download و --no-index استفاده کن.\n```bash\npip download -r requirements.txt -d ./wheels\n```"
+            ]
+          },
+          "create_time": 1792221100
+        }
+      },
+      "m3": {
+        "id": "m3",
+        "parent": "m2",
+        "children": [],
+        "message": {
+          "author": {
+            "role": "user"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "عالی، ممنون!"
+            ]
+          },
+          "create_time": 1792222000
+        }
+      }
+    }
+  },
+  {
+    "id": "example-2",
+    "title": "بحث درباره GitHub",
+    "create_time": 1792121000,
+    "update_time": 1792121200,
+    "messages": [
+      {
+        "role": "user",
+        "text": "می‌توانم Mirror داشته باشم؟"
+      },
+      {
+        "role": "assistant",
+        "text": "بله، با Git mirror."
+      }
+    ]
+  }
+]
