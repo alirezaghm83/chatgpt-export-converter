@@ -73,7 +73,9 @@
 (() => {
   const $ = id => document.getElementById(id);
   const chats = new Map();
-  let results = [], visible = 80, selectedId = null, timer = null, dragCounter = 0;
+  let results = [], visible = 80, selectedId = null, timer = null, dragCounter = 0, searchGeneration = 0, renderGeneration = 0;
+  const MESSAGE_PAGE_SIZE = 120;
+  const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
   const roleNames = {user:'کاربر', assistant:'ChatGPT',system:'System',tool:'Tool',developer:'Developer'};
   const createdDate = time => {
     if (time == null || time === '') return null;
@@ -140,17 +142,20 @@
     return {id,title,created,updated,messages};
   }
   const setStatus=(value,error=false)=>{$('status').textContent=value;$('status').classList.toggle('error',error);};
-  function register(source) {
+  async function register(source) {
     let list = Array.isArray(source) ? source : Array.isArray(source?.conversations) ? source.conversations : null;
     if (!list) throw new Error('ساختار JSON شناخته نشد؛ فایل conversations.json یا آرشیو ذخیره‌شده را انتخاب کن.');
     let added=0,replaced=0;
-    list.forEach((raw,i)=>{
-      const c=extractConversation(raw,i);
-      if (!c) return;
-      const existing=chats.get(c.id);
-      if (!existing){chats.set(c.id,c);added++;}
-      else if(timestamp(c.updated)>=timestamp(existing.updated) && c.messages.length>=existing.messages.length){chats.set(c.id,c);replaced++;}
-    });
+    for (let i=0; i<list.length; i++) {
+      const c=extractConversation(list[i],i);
+      if (c) {
+        const existing=chats.get(c.id);
+        if (!existing){chats.set(c.id,c);added++;}
+        else if(timestamp(c.updated)>=timestamp(existing.updated) && c.messages.length>=existing.messages.length){chats.set(c.id,c);replaced++;}
+      }
+      // Do not lock up the browser for thousands of conversations.
+      if ((i+1)%250===0) await yieldToBrowser();
+    }
     return {added,replaced};
   }
   async function importFiles(files) {
@@ -161,29 +166,60 @@
     for (const f of list) {
       setStatus('در حال خواندن '+f.name+' ('+(f.size/1048576).toFixed(1)+' MB)…');
       await new Promise(resolve=>setTimeout(resolve,20));
-      try {const data=JSON.parse(await f.text());const r=register(data);added+=r.added;replaced+=r.replaced;}
+      try {const data=JSON.parse(await f.text());const r=await register(data);added+=r.added;replaced+=r.replaced;}
       catch(e){failures.push(f.name+': '+e.message);}
     }
-    refresh();
+    await refresh();
     setStatus(`${added.toLocaleString('fa-IR')} گفتگوی تازه، ${replaced.toLocaleString('fa-IR')} نسخه به‌روزشده. کل آرشیو: ${chats.size.toLocaleString('fa-IR')} گفتگو.${failures.length?' خطا: '+failures.join(' | '):''}`,!!failures.length);
   }
-  function filtered() {
-    const q=normalize($('query').value.trim());const words=q.split(' ').filter(Boolean);
+  async function filtered(generation) {
+    const words=normalize($('query').value.trim()).split(' ').filter(Boolean);
     const start=$('from').value ? new Date($('from').value+'T00:00:00').getTime() : -Infinity;
     const end=$('to').value ? new Date($('to').value+'T23:59:59.999').getTime() : Infinity;
-    let list=Array.from(chats.values()).filter(c=>{
+    const list=[];
+    let examined=0;
+    for (const c of chats.values()) {
       const t=timestamp(c.created) || timestamp(c.updated);
-      if ((start!==-Infinity || end!==Infinity) && (!t || t<start || t>end)) return false;
-      if(!words.length)return true;
-      if(!c._search)c._search=normalize(c.title+'\n'+c.messages.map(m=>m.text).join('\n'));
-      return words.every(w=>c._search.includes(w));
-    });
+      if ((start===-Infinity && end===Infinity) || (t && t>=start && t<=end)) {
+        let matched=true;
+        if(words.length){
+          // Scan each message until all terms are found. Avoid holding a second
+          // normalized copy of the entire archive in memory.
+          const missing=new Set(words);
+          const foundInTitle=normalize(c.title);
+          for(const word of missing) if(foundInTitle.includes(word)) missing.delete(word);
+          if(missing.size){
+            for (const m of c.messages) {
+              const text=normalize(m.text);
+              for(const word of missing) if(text.includes(word)) missing.delete(word);
+              if(!missing.size) break;
+            }
+          }
+          matched=missing.size===0;
+        }
+        if(matched)list.push(c);
+      }
+      examined++;
+      if(examined%200===0){
+        if(generation!==searchGeneration)return null;
+        await yieldToBrowser();
+      }
+    }
+    if(generation!==searchGeneration)return null;
     const sort=$('sort').value;
     list.sort(sort==='title' ? (a,b)=>a.title.localeCompare(b.title,'fa') : sort==='asc' ? (a,b)=>timestamp(a.updated)-timestamp(b.updated) : (a,b)=>timestamp(b.updated)-timestamp(a.updated));
     return list;
   }
   function el(tag,klass,text) {const n=document.createElement(tag);if(klass)n.className=klass;if(text!==undefined)n.textContent=text;return n;}
-  function refresh(){ results=filtered();visible=80;paintList();if(selectedId && !chats.has(selectedId)){selectedId=null;paintChat();}}
+  async function refresh(){
+    const generation=++searchGeneration;
+    if(chats.size && $('query').value.trim())$('statistics').textContent='در حال جست‌وجو…';
+    const next=await filtered(generation);
+    if(next===null)return;
+    results=next;visible=80;paintList();
+    if(selectedId && !chats.has(selectedId)){selectedId=null;paintChat();}
+    $('save').disabled=!chats.size;
+  }
   function paintList(){
     const list=$('listing');list.replaceChildren();const frag=document.createDocumentFragment();
     results.slice(0,visible).forEach(c=>{
@@ -211,14 +247,30 @@
     if(start<text.length || !node.childNodes.length){const body=el('div','message-text');makeHighlighted(body,text.slice(start),query);node.append(body);}
   }
   function paintChat(){
+    const generation=++renderGeneration;
     const c=chats.get(selectedId),box=$('messages');box.replaceChildren();
     $('copy').disabled=!c;$('markdown').disabled=!c;
     if(!c){$('selectedTitle').textContent='شروع کار';$('selectedMeta').textContent='';box.append(el('div','empty','یک گفتگو را از فهرست انتخاب کن.'));return;}
     $('selectedTitle').textContent=c.title;
     $('selectedMeta').textContent=`${c.messages.length.toLocaleString('fa-IR')} پیام · ${dateLabel(c.created)} تا ${dateLabel(c.updated)}`;
-    const frag=document.createDocumentFragment();const query=$('query').value;
-    c.messages.forEach(m=>{const node=el('article','message '+(m.role==='user'?'user':m.role==='assistant'?'assistant':''));node.append(el('div','role',roleNames[m.role]||m.role));renderText(node,m.text,query);frag.append(node);});
-    box.append(frag);box.scrollTop=0;
+    const query=$('query').value;
+    let rendered=0;
+    const appendPage=()=>{
+      if(generation!==renderGeneration)return;
+      const frag=document.createDocumentFragment();
+      const limit=Math.min(rendered+MESSAGE_PAGE_SIZE,c.messages.length);
+      for(let i=rendered;i<limit;i++){
+        const m=c.messages[i];const node=el('article','message '+(m.role==='user'?'user':m.role==='assistant'?'assistant':''));
+        node.append(el('div','role',roleNames[m.role]||m.role));renderText(node,m.text,query);frag.append(node);
+      }
+      rendered=limit;box.append(frag);
+      if(rendered<c.messages.length){
+        const more=el('button','',`نمایش ۱۲۰ پیام بعدی (${(c.messages.length-rendered).toLocaleString('fa-IR')} باقی‌مانده)`);
+        more.style.margin='8px auto 24px';more.style.display='block';
+        more.onclick=()=>{more.remove();appendPage();};box.append(more);
+      }
+    };
+    appendPage();box.scrollTop=0;
   }
   const textFor=c=>c.messages.map(m=>`${roleNames[m.role]||m.role}:\n${m.text}`).join('\n\n-----\n\n');
   function download(name,data,type){const blob=new Blob([data],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
@@ -232,8 +284,6 @@
   $('copy').onclick=async()=>{const c=chats.get(selectedId);if(!c)return;try{await navigator.clipboard.writeText(textFor(c));setStatus('متن مکالمه کپی شد.');}catch(e){setStatus('مرورگر در حالت فایل آفلاین اجازه کپی نداد؛ از دریافت Markdown استفاده کن.',true);}};
   $('markdown').onclick=()=>{const c=chats.get(selectedId);if(c)download('chat-'+c.id.replace(/[^a-z0-9_-]/gi,'_')+'.md',md(c),'text/markdown;charset=utf-8');};
   $('reset').onclick=()=>{if(!chats.size)return;if(!confirm('تمام آرشیو بارگذاری‌شده از حافظه این تب پاک شود؟ فایل‌های اصلی حذف نخواهند شد.'))return;chats.clear();selectedId=null;refresh();paintChat();$('save').disabled=true;setStatus('حافظه این تب پاک شد. فایل‌های روی دیسک دست‌نخورده‌اند.');};
-  const originalRefresh=refresh;
-  refresh=function(){originalRefresh();$('save').disabled=!chats.size;};
   window.addEventListener('dragenter',e=>{if(Array.from(e.dataTransfer?.types||[]).includes('Files')){dragCounter++;$('dropOverlay').classList.add('visible');}});
   window.addEventListener('dragleave',()=>{dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('dropOverlay').classList.remove('visible');});
   window.addEventListener('dragover',e=>e.preventDefault());
