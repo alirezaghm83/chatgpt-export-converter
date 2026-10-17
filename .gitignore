@@ -1,0 +1,25 @@
+# Keep private exports and generated archives out of this PUBLIC repository
+*.json
+!tests/
+!tests/sample-conversations.json
+*.jsonl
+*.ndjson
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.backup
+chat.html
+conversations.html
+.env
+.env.*
+secrets/
+private/
+backups/
+exports/
+.DS_Store
+Thumbs.db
